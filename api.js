@@ -51,9 +51,11 @@ function renderNotes(notes) {
     const deleteButton = document.createElement("button");
     deleteButton.type = "button";
     deleteButton.textContent = "Delete";
-    deleteButton.disabled = true;
     deleteButton.setAttribute("aria-label", `Delete note ${note.id}`);
-    deleteButton.title = "Delete will be enabled in the next milestone";
+
+    deleteButton.addEventListener("click", () =>
+      deleteNote(note.id, deleteButton),
+    );
 
     item.append(title, body, deleteButton);
     notesList.appendChild(item);
@@ -89,68 +91,38 @@ async function loadNotes() {
 
 loadButton.addEventListener("click", loadNotes);
 
-async function createNote(event) {
-  event.preventDefault();
+async function deleteNote(noteId, deleteButton) {
+  const noteItem = deleteButton.closest("li");
 
-  const title = titleInput.value.trim();
-  const body = bodyInput.value.trim();
-
-  if (!title) {
-    showStatus("Please enter a title.", "error");
-    titleInput.focus();
-    return;
-  }
-
-  if (title.length > 100) {
-    showStatus("The title must be 100 characters or fewer.", "error");
-    titleInput.focus();
-    return;
-  }
-
-  submitButton.disabled = true;
-  showStatus("Creating note...");
+  deleteButton.disabled = true;
+  showStatus("Deleting note...");
 
   try {
-    const response = await request(API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        title,
-        body,
-        userId: 1,
-      }),
+    const response = await request(`${API_URL}/${noteId}`, {
+      method: "DELETE",
     });
 
-    const newNote = await response.json();
+    // JSONPlaceholder simulates deletion but does not persist changes.
+    // Remove the note from this page after a successful response.
+    noteItem.remove();
 
-    // JSONPlaceholder simulates creation but does not persist the note.
-    // Add it locally so the user can see the successful POST response.
-    const existingNotes = Array.from(notesList.children)
-      .filter((item) => item.dataset.id)
-      .map((item) => ({
-        id: item.dataset.id,
-        title: item.querySelector("h3").textContent,
-        body: item.querySelector("p").textContent,
-      }));
-
-    renderNotes([newNote, ...existingNotes]);
+    if (notesList.children.length === 0) {
+      const emptyItem = document.createElement("li");
+      emptyItem.textContent = "No notes found. Create your first note!";
+      notesList.appendChild(emptyItem);
+    }
 
     showStatus(
-      `Note created (status ${response.status}, id ${newNote.id}).`,
+      `Note deleted (status ${response.status}, id ${noteId}).`,
       "success",
     );
-
-    noteForm.reset();
   } catch (error) {
     showStatus(
-      "Sorry, we couldn't create your note. Please try again.",
+      "Sorry, we couldn't delete this note. Please try again.",
       "error",
     );
-    console.error("Error creating note:", error);
-  } finally {
-    submitButton.disabled = false;
+    console.error("Error deleting note:", error);
+    deleteButton.disabled = false;
   }
 }
 
